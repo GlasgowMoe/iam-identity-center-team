@@ -61,4 +61,4 @@ amplifytools.xcconfig
 #amplify-do-not-edit-end
 .terraform/
 *.tfstate*
-.terraform/
+
