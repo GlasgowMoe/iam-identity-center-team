@@ -1,3 +1,22 @@
+# STEPS
+0. Grant READ token to github repo
+1. createaws-team/  secret in secret manger (AccessToken & url)
+2. cd deployment and run ./init.sh
+3. wait for output similar to this : 
+    $ 123456789101 configured as delegated Admin for AWS Account Manager
+    $ 123456789101 configured as delegated Admin for cloudtrail
+    $ 123456789101 configured as delegated Admin for IAM Identity Center
+4. cd deployment and run ./deploy.sh
+5. Once the deployment script has completed execution and the cloudformation stack has been created successfully, go to the AWS Amplify console to monitor the status of the TEAM application deployment. It takes about 20 mins to complete the build and deployment of the Amplify application stack.
+
+
+
+
+
+
+
+
+
 # Temporary elevated access management (TEAM) for AWS IAM Identity Center
 This repository contains the source code for deploying TEAM application.
 

@@ -12,18 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-IDC_LOGIN_URL=https://d-9c676e6f5d.awsapps.com/start
-REGION=eu-west-2
-TEAM_ACCOUNT=626635440741
-ORG_MASTER_PROFILE=moe-root-profile
-TEAM_ACCOUNT_PROFILE=moe-root2-profile
-TEAM_ADMIN_GROUP="TEAM admins"
-TEAM_AUDITOR_GROUP="TEAM auditor"
-TAGS="project=iam-identity-center-team environment=prod"
-CLOUDTRAIL_AUDIT_LOGS=arn:aws:cloudtrail:eu-west-2:626635440741:eventdatastore/2a658d61-3d09-47e7-8390-1e5dd3c6ffd7
-SECRET_NAME=aws-team/
+# IDC_LOGIN_URL=https://d-9c670d5b12.awsapps.com/start
+# REGION=eu-west-2
+# TEAM_ACCOUNT=152129062838
+# ORG_MASTER_PROFILE=org-account
+# TEAM_ACCOUNT_PROFILE=team-account
+# TEAM_ADMIN_GROUP="SSS - AWS Role - SECURITY"
+# TEAM_AUDITOR_GROUP="SSS - AWS Role - SECURITY"
+# TAGS="project=iam-identity-center-team environment=poc"
+# CLOUDTRAIL_AUDIT_LOGS=arn:aws:cloudtrail:eu-west-2:152129062838:eventdatastore/4c461fac-5e58-41ec-a127-84d673fbfe68
+# SECRET_NAME=aws-team
+
 
 # Uncomment the next line only if you have a custom domain
 # UI_DOMAIN=portal.teamtest.online
 
 
+IDC_LOGIN_URL=https://d-9c676e6f5d.awsapps.com/start
+REGION=eu-west-2
+TEAM_ACCOUNT=626635440741
+ORG_MASTER_PROFILE=moe-root
+TEAM_ACCOUNT_PROFILE=moe-root2
+TEAM_ADMIN_GROUP="SSS - AWS Role - TEAM_ADMIN"
+TEAM_AUDITOR_GROUP="SSS - AWS Role - TEAM_AUDITOR"
+TAGS="project=iam-identity-center-team environment=poc"
+CLOUDTRAIL_AUDIT_LOGS=arn:aws:cloudtrail:eu-west-2:626635440741:eventdatastore/89291e92-bfab-47c8-b8c4-e0dfaad4b21d
+SECRET_NAME=aws-team/
