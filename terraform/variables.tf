@@ -10,7 +10,3 @@ variable "region" {
   default     = "eu-west-2"
   
 }
-
-# variable "applicationStartURL" {}
-# variable "applicationACSURL" {}
-# variable applicationSAMLAudience {}
