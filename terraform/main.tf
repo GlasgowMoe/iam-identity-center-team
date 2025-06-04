@@ -18,7 +18,7 @@ resource "aws_cloudtrail_event_data_store" "team_lake_datastore" {
 resource "null_resource" "run_init_script" {
   provisioner "local-exec" {
     command = "bash init.sh"
-    working_dir = "../deployment"
+    working_dir = "../installtion/deployment/"
     when = create
   }
     triggers = {
@@ -29,7 +29,7 @@ resource "null_resource" "run_init_script" {
 resource "null_resource" "run_deploy_script" {
   provisioner "local-exec" {
     command = "bash deploy.sh"
-    working_dir = "../deployment"
+    working_dir = "../installtion/deployment/"
     when = create
   }
     triggers = {
@@ -40,7 +40,7 @@ resource "null_resource" "run_deploy_script" {
 
 resource "null_resource" "wait_1_minutes" {
   provisioner "local-exec" {
-    command = "sleep 60" # 20 minutes = 1200 seconds
+    command = "sleep 1" # 20 minutes = 1200 seconds
   }
   depends_on = [ null_resource.run_deploy_script ]
   triggers = {
@@ -52,7 +52,7 @@ resource "null_resource" "wait_1_minutes" {
 resource "null_resource" "run_integration_script" {
   provisioner "local-exec" {
     command = "bash integration.sh"
-    working_dir = "../deployment"
+    working_dir = "../installtion/deployment/"
   }
   depends_on = [ null_resource.wait_1_minutes]
   triggers = {

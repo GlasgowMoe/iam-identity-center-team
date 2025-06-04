@@ -13,18 +13,23 @@ import {
   SpaceBetween,
   CollectionPreferences,
   Modal,
+  Select,
+  Textarea,
+  FormField,
   ColumnLayout,
   ExpandableSection,
-  Select,
 } from "@awsui/components-react";
 import { useCollection } from "@awsui/collection-hooks";
-import { Divider } from "antd";
-import { sessions } from "../Shared/RequestService";
+import { useHistory } from "react-router-dom";
+import { sessions, updateStatus, getSetting} from "../Shared/RequestService";
 import { API, graphqlOperation } from "aws-amplify";
 import { onUpdateRequests } from "../../graphql/subscriptions";
 import Status from "../Shared/Status";
+import Details from "../Shared/Details";
 import "../../index.css";
-import Logs from "../Sessions/Logs";
+import { Divider } from "antd";
+import Logs from "./Logs"
+import Timer from "./Timer";
 
 function convertAwsDateTime(awsDateTime) {
   // Parse AWS datetime string into a Date object
@@ -78,25 +83,25 @@ const COLUMN_DEFINITIONS = [
     minWidth: 160,
   },
   {
-    id: "endTime",
-    sortingField: "endTime",
-    header: "EndTime",
-    cell: (item) => convertAwsDateTime(item.endTime),
-    minWidth: 10,
+    id: "duration",
+    sortingField: "duration",
+    header: "Duration",
+    cell: (item) => `${item.duration} hours`,
+    maxWidth: 120,
   },
-  // {
-  //   id: "duration",
-  //   sortingField: "duration",
-  //   header: "Duration",
-  //   cell: (item) => `${item.duration} hours`,
-  //   maxWidth: 120,
-  // },
   {
     id: "justification",
     sortingField: "justification",
     header: "Justification",
     cell: (item) => item.justification,
     maxWidth: 200,
+  },
+  {
+    id: "ticketNo",
+    sortingField: "ticketNo",
+    header: "Ticket no",
+    cell: (item) => item.ticketNo || "-",
+    minWidth: 10,
   },
   {
     id: "status",
@@ -137,10 +142,10 @@ const MyCollectionPreferences = ({ preferences, setPreferences }) => {
               { id: "email", label: "Requester" },
               { id: "account", label: "Account" },
               { id: "role", label: "Role" },
-              // { id: "duration", label: "Duration" },
+              { id: "duration", label: "Duration" },
               { id: "startTime", label: "StartTime" },
               { id: "justification", label: "Justification" },
-              { id: "endTime", label: "EndTime" },
+              { id: "ticketNo", label: "TicketNo" },
               { id: "status", label: "Status" },
             ],
           },
@@ -167,7 +172,7 @@ const defaultStatus = {
   value: "0",
 };
 
-function Audit(props) {
+function Active(props) {
   const [allItems, setAllItems] = useState([]);
   const [preferences, setPreferences] = useState({
     pageSize: 10,
@@ -175,10 +180,10 @@ function Audit(props) {
       "email",
       "account",
       "role",
-      // "duration",
+      "duration",
       "startTime",
       "justification",
-      "endTime",
+      "ticketNo",
       "status",
     ],
   });
@@ -214,6 +219,7 @@ function Audit(props) {
   }
 
   const SEARCHABLE_COLUMNS = COLUMN_DEFINITIONS.map((item) => item.id);
+
   const {
     items,
     actions,
@@ -236,7 +242,11 @@ function Audit(props) {
         );
       },
       empty: (
-        <EmptyState title="No elevated access" subtitle="No elevated access to display." />
+        <EmptyState
+          title="No elevated access"
+          subtitle="No elevated access to display."
+          action={<Button onClick={handleCreate}>Create request</Button>}
+        />
       ),
       noMatch: (
         <EmptyState
@@ -256,22 +266,30 @@ function Audit(props) {
   });
 
   const { selectedItems } = collectionProps;
+  const history = useHistory();
   const [tableLoading, setTableLoading] = useState(true);
   const [visible, setVisible] = useState(false);
+  const [revokeVisible, setrevokeVisible] = useState(false);
+  const [comment, setComment] = useState();
+  const [commentError, setCommentError] = useState();
   const [refreshLoading, setRefreshLoading] = useState(false);
+  const [revokeLoading, setRevokeLoading] = useState(false);
+  const [expand, setExpand] = useState(false);
   const [viewLogs, setViewLogs] = useState(false);
+  const [commentRequired, setCommentRequired] = useState(true);
 
   useEffect(() => {
     views();
     props.addNotification([]);
     approveEvent();
+    getSettings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function views() {
     let filter = {
       and: [
-        {or: [{ status: { eq: "ended" } }, { status: { eq: "revoked" } }]},
+        {or: [{ status: { eq: "scheduled" } }, { status: { eq: "in progress" } }]},
         {or: [{ email: { eq: props.user } }, { approvers: { contains: props.user } }]}
       ]
     };
@@ -280,13 +298,31 @@ function Audit(props) {
       setAllItems(items);
       setTableLoading(false);
       setRefreshLoading(false);
+      setRevokeLoading(false);
+      setVisible(false);
+      setrevokeVisible(false);
+      setComment()
+    });
+  }
+
+  function getSettings(){
+    getSetting("settings").then((data) => {
+      if (data !== null) {
+        setCommentRequired(data.comments);
+        }
     });
   }
 
   function approveEvent() {
     API.graphql(graphqlOperation(onUpdateRequests)).subscribe({
       next: ({ value }) => {
-        if (value.data.onUpdateRequests.status === "ended") views();
+        // eslint-disable-next-line default-case
+        switch (value.data.onUpdateRequests.status) {
+          case "in progress":
+          case "ended":
+          case "revoked":
+            views();
+        }
       },
       error: (error) => console.warn(error),
     });
@@ -300,6 +336,7 @@ function Audit(props) {
 
   function handleSelect() {
     setVisible(true);
+    setExpand(false);
     setViewLogs(true);
   }
 
@@ -313,6 +350,35 @@ function Audit(props) {
       <div>{children}</div>
     </div>
   );
+
+
+  function handleCreate() {
+    history.push("/requests/request");
+    props.setActiveHref("/requests/request");
+  }
+
+  function revoke() {
+    setRevokeLoading(true);
+    const data = {
+      id: selectedItems[0].id,
+      status: "revoked",
+      revokeComment: comment,
+    };
+    updateStatus(data).then(() => {
+      views();
+      props.addNotification([
+        {
+          type: "success",
+          content: "Elevated access revoked",
+          dismissible: true,
+          onDismiss: () => props.addNotification([]),
+        },
+      ]);
+    });
+  }
+  function handleRevoke() {
+    (!comment && commentRequired) || (comment && !(/[\p{L}\p{N}]/u.test(comment[0]))) ? setCommentError("Enter valid reason for revoking elevated access") : revoke();
+  }
 
   return (
     <div className="container">
@@ -337,14 +403,24 @@ function Audit(props) {
                   loading={refreshLoading}
                 />
                 <Button
+                  // variant="primary"
+                  onClick={() => {
+                    setrevokeVisible(true)
+                    }}
                   disabled={selectedItems.length === 0}
+                >
+                  Revoke
+                </Button>
+                <Button
+                  disabled={selectedItems.length === 0}
+                  variant="primary"
                   onClick={handleSelect}
                 >
                   View details
                 </Button>
               </SpaceBetween>
             }
-            description="Ended or revoked elevated access"
+            description="Scheduled or in-progress elevated access requests"
           >
             Elevated access
           </Header>
@@ -387,6 +463,7 @@ function Audit(props) {
           <Modal
             onDismiss={() => {
               setVisible(false);
+              setExpand(true);
               setViewLogs(false);
             }}
             visible={visible}
@@ -403,6 +480,13 @@ function Audit(props) {
                     }}
                   >
                     Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => setrevokeVisible(true)}
+                    disabled={selectedItems.length === 0 && (props.user===selectedItems[0].email || selectedItems[0].approvers.includes(props.user))}
+                  >
+                    Revoke
                   </Button>
                 </SpaceBetween>
               </Box>
@@ -440,53 +524,104 @@ function Audit(props) {
                 </SpaceBetween>
                 <SpaceBetween size="l">
                   <ValueWithLabel
-                    label="Start Time"
+                    label="Start time"
                     children={convertAwsDateTime(selectedItems[0].startTime)}
                   />
                   <ValueWithLabel
-                    label="End Time"
-                    children={convertAwsDateTime(selectedItems[0].endTime)}
+                    label="Duration"
+                    children={`${selectedItems[0].duration} Hours`}
                   />
+                  <Timer item={selectedItems[0]} />
                 </SpaceBetween>
               </ColumnLayout>
-              <Divider style={{ marginBottom: "7px", marginTop: "7px" }} />
-              <ColumnLayout columns={3}>
-                <SpaceBetween size="m">
-                  <ValueWithLabel
-                    label="Approved by"
-                    children={`${selectedItems[0].approver}`}
-                  />
-                  <ValueWithLabel
-                    label="Comments"
-                    children={`${selectedItems[0].comment}`}
-                  />
-                </SpaceBetween>
+
+              <div>
+                {selectedItems[0].approver && (
+                  <div>
+                    <Divider
+                      style={{ marginBottom: "10px", marginTop: "10px" }}
+                    />
+                    <ColumnLayout columns={3}>
+                      <SpaceBetween size="m">
+                        <ValueWithLabel
+                          label="Approved by"
+                          children={`${selectedItems[0].approver}`}
+                        />
+                        <ValueWithLabel
+                          label="Comments"
+                          children={`${selectedItems[0].comment}`}
+                        />
+                      </SpaceBetween>
+                    </ColumnLayout>
+                  </div>
+                )}
+              </div>
+              {selectedItems[0].status === "in progress" && (
                 <div>
-                  {selectedItems[0].status === "revoked" && (
-                    <SpaceBetween size="m">
-                      <ValueWithLabel
-                        label={
-                          selectedItems[0].revoker === props.user
-                            ? "Revoked by (requester)"
-                            : "Revoked by (approver)"
-                        }
-                        children={`${selectedItems[0].revoker}`}
-                      />
-                      <ValueWithLabel
-                        label="Comments"
-                        children={`${selectedItems[0].revokeComment}`}
-                      />
-                    </SpaceBetween>
-                  )}
+                  <ExpandableSection
+                    variant="footer"
+                    header="Session activity logs"
+                    className="expanded"
+                  >
+                    <div>{viewLogs && <Logs item={selectedItems[0]} />}</div>
+                  </ExpandableSection>
                 </div>
-              </ColumnLayout>
-              <ExpandableSection
-                variant="footer"
-                header="Session activity logs"
-                className="expanded"
+              )}
+            </SpaceBetween>
+          </Modal>
+        ) : null}
+      </div>
+      <div>
+        {selectedItems.length ? (
+          <Modal
+            onDismiss={() => {
+              setrevokeVisible(false);
+              setComment()
+            }}
+            visible={revokeVisible}
+            closeAriaLabel="Close modal"
+            size="large"
+            footer={
+              <Box float="right">
+                <SpaceBetween direction="horizontal" size="s">
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setrevokeVisible(false);
+                      setComment()
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleRevoke}
+                    loading={revokeLoading}
+                  >
+                    Confirm
+                  </Button>
+                </SpaceBetween>
+              </Box>
+            }
+            header="Revoke elevated access"
+          >
+            <SpaceBetween size="m">
+              <Details item={selectedItems[0]} status={expand} />
+              <Divider style={{ marginBottom: "10px", marginTop: "10px" }} />
+              <FormField
+                label="Revoke Comments"
+                stretch
+                description="Revoked elevated access prevents users from invoking new session. Active sessions might remain valid until session duration expires"
+                errorText={commentError}
               >
-                <div>{viewLogs && <Logs item={selectedItems[0]} />}</div>
-              </ExpandableSection>
+                <Textarea
+                  onChange={({ detail }) => {
+                    setCommentError();
+                    setComment(detail.value);
+                  }}
+                  value={comment}
+                />
+              </FormField>
             </SpaceBetween>
           </Modal>
         ) : null}
@@ -495,4 +630,4 @@ function Audit(props) {
   );
 }
 
-export default Audit;
+export default Active;
